@@ -1,7 +1,17 @@
 from app.utils import extract_skills
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
+from openai import OpenAI
+import os
 
+
+# Initialize Groq client
+client = OpenAI(
+    api_key=os.getenv("GROQ_API_KEY"),
+    base_url="https://api.groq.com/openai/v1"
+)
+
+print("GROQ KEY:", os.getenv("GROQ_API_KEY"))
 
 # Load MiniLM model
 model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -79,7 +89,7 @@ def exact_match(resume_sections, jd_sections):
     matched_score = sum(jd_weights[s] for s in matched)
     total_score = sum(jd_weights[s] for s in jd_skills)
 
-    score = matched_score / total_score
+    score = matched_score / total_score if total_score else 0
 
     return score, list(matched), list(missing)
 
@@ -135,6 +145,51 @@ def final_score(e, s, a, o):
     return (0.5 * e + 0.25 * s + 0.15 * a + 0.1 * o) * 100
 
 
+#  LLM EXPLAINABILITY (Groq)
+def llm_explain(matched, missing, score, semantic_score, jd_weights=None):
+    try:
+        if not os.getenv("GROQ_API_KEY"):
+            return "LLM unavailable: API key not set."
+
+        top_missing = missing
+
+        if jd_weights:
+            top_missing = sorted(
+                missing,
+                key=lambda x: jd_weights.get(x, 1),
+                reverse=True
+            )[:5]
+
+        prompt = f"""
+You are an AI hiring assistant.
+
+Explain why a candidate received this score.
+
+Details:
+- Score: {round(score, 2)}
+- Semantic similarity: {round(semantic_score, 2)}
+- Matched skills: {matched}
+- Missing skills: {top_missing}
+
+Instructions:
+- Be concise (4–5 lines)
+- Highlight strengths
+- Highlight critical gaps
+- Suggest EXACTLY 2 improvements to increase score
+"""
+
+        response = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.5
+        )
+
+        return response.choices[0].message.content.strip()
+
+    except Exception as e:
+        return f"LLM ERROR: {str(e)}"
+
+
 # Explainability
 def explain(matched, missing, score, semantic_score, jd_weights=None, a=None, o=None):
     explanation = {}
@@ -160,43 +215,27 @@ def explain(matched, missing, score, semantic_score, jd_weights=None, a=None, o=
             "Resume may lack detailed project descriptions or relevant keywords."
         )
 
-    # Achievement interpretation
     if a is not None:
         explanation["achievement_score"] = round(a, 2)
 
-        if a < 0.4:
-            explanation["achievement_feedback"] = (
-                "Low impact: add measurable results (%, speed, performance improvements)."
-            )
-        elif a < 0.7:
-            explanation["achievement_feedback"] = (
-                "Moderate impact: improve with more quantified achievements."
-            )
-        else:
-            explanation["achievement_feedback"] = "Strong impact demonstrated"
-
-    # Ownership interpretation
     if o is not None:
         explanation["ownership_score"] = round(o, 2)
 
-        if o < 0.4:
-            explanation["ownership_feedback"] = (
-                "Low ownership: use action verbs like led, built, designed."
-            )
-        elif o < 0.7:
-            explanation["ownership_feedback"] = (
-                "Moderate ownership: clarify contributions."
-            )
-        else:
-            explanation["ownership_feedback"] = "Strong ownership demonstrated"
-
-    # Interpretation
     if score >= 80:
         explanation["interpretation"] = "Strong match"
     elif score >= 65:
         explanation["interpretation"] = "Moderate match"
     else:
         explanation["interpretation"] = "Low match"
+
+    #  LLM output
+    explanation["llm_explanation"] = llm_explain(
+        matched,
+        missing,
+        score,
+        semantic_score,
+        jd_weights
+    )
 
     return explanation
 

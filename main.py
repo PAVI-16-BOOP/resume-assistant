@@ -10,24 +10,40 @@ from app.scoring import (
     classify
 )
 from app.utils import extract_skills
+from app.questions import generate_questions
 
 
-# Load PDFs
-resume_text = extract_text_from_pdf("resume.pdf")
-jd_text = extract_text_from_pdf("jd.pdf")
+# -------------------------------
+# LOAD INPUT FILES
+# -------------------------------
+resume_path = "resume.pdf"
+jd_path = "jd.pdf"
+
+resume_text = extract_text_from_pdf(resume_path)
+jd_text = extract_text_from_pdf(jd_path)
 
 
-# Split sections
+# -------------------------------
+# PARSE SECTIONS
+# -------------------------------
 resume_sections = split_sections(resume_text)
 jd_sections = split_sections(jd_text)
 
 
-# Debug skills
-print("\nResume Skills:", extract_skills(resume_sections))
-print("\nJD Skills:", extract_skills(jd_sections))
+# -------------------------------
+# DEBUG: EXTRACTED SKILLS
+# -------------------------------
+resume_skills = extract_skills(resume_sections)
+jd_skills = extract_skills(jd_sections)
+
+print("\n================ SKILLS =================")
+print("Resume Skills:", resume_skills)
+print("JD Skills:", jd_skills)
 
 
-# Scores
+# -------------------------------
+# SCORING
+# -------------------------------
 e, matched, missing = exact_match(resume_sections, jd_sections)
 s = similarity_score(resume_sections, jd_sections)
 
@@ -37,7 +53,9 @@ o = ownership_score(resume_text)
 final = final_score(e, s, a, o)
 
 
-# Explanation
+# -------------------------------
+# EXPLAINABILITY
+# -------------------------------
 jd_weights = get_jd_weights(jd_sections)
 
 exp = explain(
@@ -53,19 +71,62 @@ exp = explain(
 tier = classify(final)
 
 
-# Output
-print("\n--- RESULTS ---")
-print("Exact:", round(e, 2))
-print("Semantic:", round(s, 2))
-print("Achievement:", round(a, 2))
-print("Ownership:", round(o, 2))
-print("Final:", round(final, 2))
+# -------------------------------
+# RESULTS
+# -------------------------------
+print("\n================ RESULTS =================")
+print(f"Exact Match Score      : {round(e, 2)}")
+print(f"Semantic Similarity    : {round(s, 2)}")
+print(f"Achievement Score      : {round(a, 2)}")
+print(f"Ownership Score        : {round(o, 2)}")
+print(f"Final Score            : {round(final, 2)}")
 
-print("\nMatched:", matched)
-print("Missing:", missing)
+print("\nMatched Skills :", matched)
+print("Missing Skills :", missing)
 
-print("\n--- EXPLANATION ---")
+print("\nCandidate Tier :", tier)
+
+
+# -------------------------------
+# RULE-BASED EXPLANATION
+# -------------------------------
+print("\n================ EXPLANATION =================")
+
 for k, v in exp.items():
-    print(f"{k}: {v}")
+    if k != "llm_explanation":
+        print(f"{k}: {v}")
 
-print("\nTier:", tier)
+
+# -------------------------------
+# LLM EXPLANATION (GROQ)
+# -------------------------------
+print("\n================ LLM INSIGHTS =================")
+
+llm_text = exp.get("llm_explanation")
+
+if not llm_text or "LLM unavailable" in llm_text:
+    print("LLM not available. Showing rule-based insights only.")
+else:
+    print(llm_text)
+
+
+# -------------------------------
+# QUESTION GENERATION
+# -------------------------------
+print("\n================ INTERVIEW QUESTIONS =================")
+
+# 🔥 future-ready (LLM + fallback supported)
+questions = generate_questions(
+    missing,
+    matched,
+    jd_weights=jd_weights,
+    jd_text=jd_text,
+    score=final
+)
+
+# Handle both string (LLM) and list (rule-based)
+if isinstance(questions, str):
+    print(questions)
+else:
+    for i, q in enumerate(questions, 1):
+        print(f"{i}. {q}")
