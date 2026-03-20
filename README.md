@@ -3,6 +3,19 @@
 This project is a backend AI system that will check resumes based on a job description, give a score, and explain the rationale behind the score, categorize candidates by tier, and create personalized interview questions.
 The system doesn’t rely on keyword matching; rather, it uses different factors such as skill matching, semantic matching, achievements, and ownership to mimic how a recruiter would truly assess a candidate.
 
+### SET-UP INSTRUCTIONS 
+
+* BASH : git clone <repo>
+cd resume-assistant
+pip install -r requirements.txt
+
+* Run API : uvicorn main:app --reload
+
+* Run tests : python tests/test_cases.py
+
+### PROJECT STRUCTURE 
+
+
 ## 1. Project Overview
 
 The system processes a **resume** (PDF or text) against a **job description** to generate the following outputs:
@@ -124,20 +137,71 @@ Covers 10 real-world scenarios:
 *overqualified candidate
 *irrelevant skills
 
-## Example outputs : 
+Below are sample outputs of the system under different resume–JD matching scenarios:
 
-Strong Match : Score: 75.0
-Tier: Tier A
-Matched: ['python', 'aws', 'sql', 'docker', 'machine learning']
-Missing: []
+---
 
-Partial Match : Score: 37.67
-Tier: Tier D
-Matched: ['python', 'sql']
-Missing: ['aws', 'docker']
+### 🔴 No Match Scenario
+When the resume has almost no relevant skills compared to the JD.
 
-Synonym Match : Resume: ML
-JD: Machine Learning
-Score: 66.3
-Tier: Tier B
+![No Match](./Z-NO-MATCH.png)
 
+---
+
+### 🟡 Partial Match Scenario
+When the resume matches some but not all required skills.
+
+![Partial Match](./Z-PARTIAL-MATCH.png)
+
+---
+
+### 🟢 Strong Match Scenario
+When the resume closely aligns with the JD requirements.
+
+![Strong Match](./Z-STRONG-MATCH.png)
+
+---
+
+### ⚪ Empty Resume Scenario
+When the input resume has little or no meaningful content.
+
+![Empty Resume](./Z-Empty-Resume.png)
+
+---
+
+### 🧪 Additional Test Cases
+General test case coverage for validation and edge cases.
+
+![Test Cases](./Test_Cases.png)
+
+5. Tier Classification:
+   
+Tier	Meaning
+
+S	Exceptional
+A	Fast-track
+B	Technical screen
+C	Needs evaluation
+D	Weak match
+
+### 6. Assumptions & Trade-offs
+
+Assumptions:
+
+Resumes can be messy/unstructured
+,Skills can come in different forms
+,Keywords alone are not sufficient
+
+Trade-offs:
+
+Rule-based parsing: fast but not very accurate
+Embeddings: more accurate but at a cost
+LLM: more accurate but requires API
+
+ ### 7. Limitations
+ 
+Scores can go slightly negative (edge case)
+,Better suited for tech resumes than creative resumes
+,API uses query params (schema not yet defined)
+,Depends on skill map coverage
+,LLM requires API key
