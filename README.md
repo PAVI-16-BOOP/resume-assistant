@@ -26,6 +26,34 @@ python tests/test_cases.py
 
 ---
 
+##  Tech Stack & Tools Used
+
+### Programming Language
+- Python
+
+### Backend Framework
+- FastAPI
+
+### Machine Learning / NLP
+- SentenceTransformers (`all-MiniLM-L6-v2`)
+- Scikit-learn (cosine similarity)
+
+### LLM Integration
+- Groq API (LLaMA 3.1 via OpenAI-compatible client)
+
+### PDF Processing
+- pdfplumber
+
+### Data Handling
+- JSON (custom `skill_map.json`)
+
+### Testing & Development
+- Custom test suite (`test_cases.py`)
+- VS Code
+- Git & GitHub
+
+---
+
 ## PROJECT STRUCTURE 
 
 ## 🗂️ Project Structure
