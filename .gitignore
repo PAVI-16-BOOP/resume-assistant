@@ -1,0 +1,6 @@
+# Ignore PDFs
+resume.pdf
+jd.pdf
+
+# Ignore Python cache
+__pycache__/
