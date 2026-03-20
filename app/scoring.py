@@ -3,7 +3,7 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 
 
-#  Load MiniLM model
+#  Load MiniLM model (only once)
 model = SentenceTransformer("all-MiniLM-L6-v2")
 
 
@@ -36,16 +36,36 @@ LOW_PRIORITY = {
 }
 
 
-def weight(skill):
-    if skill in HIGH_PRIORITY:
-        return 2.0
-    elif skill in MEDIUM_PRIORITY:
-        return 1.5
-    elif skill in LOW_PRIORITY:
-        return 1.0
-    return 1.2
+#  Dynamic JD weighting
+def get_jd_weights(jd_sections):
+    jd_skills = extract_skills(jd_sections)
+    text = " ".join(jd_sections.values()).lower()
+
+    weights = {}
+
+    for skill in jd_skills:
+        # base tier weight
+        if skill in HIGH_PRIORITY:
+            base = 2.5
+        elif skill in MEDIUM_PRIORITY:
+            base = 2.0
+        elif skill in LOW_PRIORITY:
+            base = 1.5
+        else:
+            base = 1.8
+
+        #  context-based boost from JD wording
+        if f"required {skill}" in text or f"must have {skill}" in text:
+            base += 0.5
+        elif f"preferred {skill}" in text or f"nice to have {skill}" in text:
+            base -= 0.3
+
+        weights[skill] = max(base, 1.0)  # avoid negative/too low
+
+    return weights
 
 
+#  Exact match with dynamic weights
 def exact_match(resume_sections, jd_sections):
     resume_skills = extract_skills(resume_sections)
     jd_skills = extract_skills(jd_sections)
@@ -56,14 +76,17 @@ def exact_match(resume_sections, jd_sections):
     matched = set(resume_skills) & set(jd_skills)
     missing = set(jd_skills) - set(resume_skills)
 
-    matched_score = sum(weight(s) for s in matched)
-    total_score = sum(weight(s) for s in jd_skills)
+    jd_weights = get_jd_weights(jd_sections)
+
+    matched_score = sum(jd_weights[s] for s in matched)
+    total_score = sum(jd_weights[s] for s in jd_skills)
 
     score = matched_score / total_score
 
     return score, list(matched), list(missing)
 
 
+# 🔧 Convert sections → text
 def sections_to_text(sections):
     return " ".join(sections.values())
 
@@ -109,6 +132,6 @@ def ownership_score(text):
     return min(score / len(OWNERSHIP_WORDS), 1)
 
 
-#  Final score
+#  Final score (balanced)
 def final_score(e, s, a, o):
     return (0.5 * e + 0.25 * s + 0.15 * a + 0.1 * o) * 100
